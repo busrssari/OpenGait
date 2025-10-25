@@ -18,7 +18,17 @@ class CrossEntropyLoss(BaseLoss):
         """
         n, c, p = logits.size()
         logits = logits.float()
-        labels = labels.unsqueeze(1)
+
+
+
+         # ----- Minimal tip uyumu -----
+        if isinstance(labels, np.ndarray):
+            labels = torch.from_numpy(labels)
+            print(f"Uyarı: labels NumPy array idi, tensor’a çevrildi. Şekil: {labels.shape}")
+
+        labels = labels.unsqueeze(1)  # orijinal kodda ne vardıysa onu bırakıyoruz
+
+
         if self.label_smooth:
             loss = F.cross_entropy(
                 logits*self.scale, labels.repeat(1, p), label_smoothing=self.eps)
