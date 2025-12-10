@@ -1,5 +1,6 @@
+import torch              # <-- EKSİKTİ
 import torch.nn.functional as F
-
+import numpy as np        # <-- EKSİKTİ
 from .base import BaseLoss
 
 
@@ -24,9 +25,11 @@ class CrossEntropyLoss(BaseLoss):
          # ----- Minimal tip uyumu -----
         if isinstance(labels, np.ndarray):
             labels = torch.from_numpy(labels)
-            print(f"Uyarı: labels NumPy array idi, tensor’a çevrildi. Şekil: {labels.shape}")
+           # print(f"Uyarı: labels NumPy array idi, tensor’a çevrildi. Şekil: {labels.shape}")
 
-        labels = labels.unsqueeze(1)  # orijinal kodda ne vardıysa onu bırakıyoruz
+# 2. KRİTİK HAMLE: Etiketleri Modelin olduğu yere (GPU'ya) gönder!
+        labels = labels.to(logits.device)
+        labels = labels.unsqueeze(1)  # orijinal kodda ne varsa onu bırakıyoruz
 
 
         if self.label_smooth:
