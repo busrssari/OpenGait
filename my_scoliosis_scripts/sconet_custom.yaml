@@ -1,0 +1,112 @@
+
+# Note: You need to ensure 'my_scoliosis_scripts.sconet_custom' is imported/registered or accessible.
+# OpenGait typically imports models from `opengait.modeling.models`.
+# To use a custom model file outside that tree, we might need a workaround or move the file.
+# For now, I will assume we can register it or I will guide the user to move it if needed.
+# However, standard OpenGait behavior looks up model class by name in `opengait.modeling.models`.
+# To make this easy, we might need to modify `opengait/modeling/models/__init__.py` or similar.
+# OR, simpler: I'll name the model 'ScoNet' in the config, but ensure our custom RUN script imports OUR class.
+
+data_cfg:
+  dataset_name: mydata
+  dataset_root: /mnt/c/Users/yusuf/OneDrive/Masaüstü/data/processed_silhouettes
+  dataset_partition: ./my_scoliosis_scripts/dataset_partition.json
+  num_workers: 1
+  remove_no_gallery: false
+  test_dataset_name: mydata
+
+evaluator_cfg:
+  enable_float16: true
+  restore_ckpt_strict: false # Changed to false for Transfer Learning adaptation
+  restore_hint: /mnt/c/Users/yusuf/OneDrive/Belgeler/GitHub/final-project/OpenGait/OpenGait/output/mydata/ScoNet/ScoNetCustom/checkpoints/ScoNetCustom-06000.pt
+  save_name: ScoNetCustom
+  eval_func: evaluate_scoliosis # Ensure this function exists or use standard 'evaluate_indoor_dataset'
+  sampler:
+    batch_shuffle: false
+    batch_size: 1
+    sample_type: all_ordered
+    frames_all_limit: 720
+  metric: euc 
+  transform:
+    - type: BaseSilCuttingTransform
+
+loss_cfg:
+  - loss_term_weight: 1.0
+    margin: 0.2
+    type: TripletLoss
+    log_prefix: triplet
+  - loss_term_weight: 1.0
+    scale: 16
+    type: CrossEntropyLoss
+    log_prefix: softmax
+    log_accuracy: true
+
+model_cfg:
+  model: ScoNet # We will inject our custom class as 'ScoNet' at runtime
+  backbone_cfg:
+    type: ResNet9
+    block: BasicBlock
+    channels:
+      - 64
+      - 128
+      - 256
+      - 512
+    layers:
+      - 1
+      - 1
+      - 1
+      - 1
+    strides:
+      - 1
+      - 2
+      - 2
+      - 1
+    maxpool: false
+  SeparateFCs:
+    in_channels: 512
+    out_channels: 256
+    parts_num: 16
+  SeparateBNNecks:
+    class_num: 2  # CRITICAL: 2 Classes (Healthy, Patient)
+    in_channels: 256
+    parts_num: 16
+  bin_num:
+    - 16
+
+optimizer_cfg:
+  lr: 0.025
+  momentum: 0.9
+  solver: SGD
+  weight_decay: 0.0005
+
+scheduler_cfg:
+  gamma: 0.1
+  milestones:
+    - 2000
+    - 4000
+    - 5000
+  scheduler: MultiStepLR
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  with_test: false
+  optimizer_reset: true  # Reset optimizer to avoid shape mismatch (3->2 classes)
+  scheduler_reset: true  # Reset scheduler as we are starting fine-tuning
+  log_iter: 50
+  restore_ckpt_strict: false
+  restore_hint: /mnt/c/Users/yusuf/OneDrive/Belgeler/GitHub/final-project/OpenGait/OpenGait/output/Scoliosis1K/ScoNet/ScoNet/checkpoints/ScoNet-20000.pt # Start from scratch or pretrained? Usually 0 for new training, or path for resume.
+  save_iter: 500
+  save_name: ScoNetCustom
+  sync_BN: true
+  total_iter: 6000
+  sampler:
+    batch_shuffle: true
+    batch_size:
+      - 4
+      - 4
+    frames_num_fixed: 30
+    sample_type: fixed_unordered
+    type: TripletSampler
+  transform:
+    - type: BaseSilCuttingTransform

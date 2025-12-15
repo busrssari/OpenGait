@@ -425,23 +425,45 @@ def evaluate_scoliosis(data, dataset, metric='euc'):
     labels = data['types']
     
     # Label mapping: negative->0, neutral->1, positive->2  
-    label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
-    true_ids = np.array([label_map[status] for status in labels])
+    #label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
+    # true_ids = np.array([label_map[status] for status in labels])
+    #GÜNCELLENDİ: START
+    # Label mapping: negative->0, neutral->1, positive->2  
+    #label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
+    # true_ids = np.array([label_map[status] for status in labels])
     
+    # Label mapping: healthy->0, patient->1 (Substring matching)
+    true_ids = []
+    for status in labels:
+        s = status.lower()
+        if 'patient' in s or 'positive' in s:
+            true_ids.append(1)
+        else:
+            true_ids.append(0)
+    true_ids = np.array(true_ids)
+    #GÜNCELLENDİ: END
+
+
     pred_ids = np.argmax(logits.mean(-1), axis=-1)
     
     # Calculate evaluation metrics
     # Total Accuracy: proportion of correctly predicted samples among all samples
     accuracy = accuracy_score(true_ids, pred_ids)
     
+
+    #GÜNCELLENDİ: START
     # Macro-average Precision: average of precision scores for each class
-    precision = precision_score(true_ids, pred_ids, average='macro', zero_division=0)
-    
+    #precision = precision_score(true_ids, pred_ids, average='macro', zero_division=0)
     # Macro-average Recall: average of recall scores for each class  
-    recall = recall_score(true_ids, pred_ids, average='macro', zero_division=0)
-    
+    #recall = recall_score(true_ids, pred_ids, average='macro', zero_division=0)
     # Macro-average F1: average of F1 scores for each class
-    f1 = f1_score(true_ids, pred_ids, average='macro', zero_division=0)
+    #f1 = f1_score(true_ids, pred_ids, average='macro', zero_division=0)
+
+    precision = precision_score(true_ids, pred_ids, average='binary', pos_label=1)
+    recall = recall_score(true_ids, pred_ids, average='binary', pos_label=1)
+    f1 = f1_score(true_ids, pred_ids, average='binary', pos_label=1)
+    #GÜNCELLENDİ: END
+
     
     # Confusion matrix (for debugging)
     # cm = confusion_matrix(true_ids, pred_ids, labels=[0, 1, 2])

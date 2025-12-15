@@ -253,10 +253,29 @@ class BaseModel(MetaModel, nn.Module):
             "cuda", self.device))
         model_state_dict = checkpoint['model']
 
+        #GÜNCELLENDİ: START
+        #if not load_ckpt_strict:
+        #    self.msg_mgr.log_info("-------- Restored Params List --------")
+        #    self.msg_mgr.log_info(sorted(set(model_state_dict.keys()).intersection(
+        #        set(self.state_dict().keys()))))
+
         if not load_ckpt_strict:
             self.msg_mgr.log_info("-------- Restored Params List --------")
             self.msg_mgr.log_info(sorted(set(model_state_dict.keys()).intersection(
                 set(self.state_dict().keys()))))
+            
+            # Filter out parameters with mismatched shapes (e.g. classification head change)
+            model_dict = self.state_dict()
+            valid_state_dict = {}
+            for k, v in model_state_dict.items():
+                if k in model_dict:
+                    if v.shape == model_dict[k].shape:
+                        valid_state_dict[k] = v
+                    else:
+                        print(f"Skipping parameter {k}: Shape mismatch (Checkpoint: {v.shape}, Model: {model_dict[k].shape})")
+            
+            model_state_dict = valid_state_dict
+        #GÜNCELLENDİ: END
 
         self.load_state_dict(model_state_dict, strict=load_ckpt_strict)
         if self.training:

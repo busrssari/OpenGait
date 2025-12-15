@@ -1,10 +1,9 @@
 import torch
-
-from ..base_model import BaseModel
-from ..modules import SetBlockWrapper, HorizontalPoolingPyramid, PackSequenceWrapper, SeparateFCs, SeparateBNNecks
-
+from opengait.modeling.base_model import BaseModel
+from opengait.modeling.modules import SetBlockWrapper, HorizontalPoolingPyramid, PackSequenceWrapper, SeparateFCs, SeparateBNNecks
 from einops import rearrange
 import numpy as np
+
 class ScoNet(BaseModel):
 
     def build_network(self, model_cfg):
@@ -18,21 +17,33 @@ class ScoNet(BaseModel):
     def forward(self, inputs):
         ipts, pids, labels, _, seqL = inputs
 
-        # Label mapping: negative->0, neutral->1, positive->2 
-        #label_ids = np.array([{'negative': 0, 'neutral': 1, 'positive': 2}[status] for status in labels])
-        #GÜNCELLENDİ: START
-        #label_ids = np.array([{'healthy': 0, 'patient': 1}[status] for status in labels])
+        # Custom Label mapping for 2 classes
+        # 'healthy'/'negative'/'neutral' -> 0
+        # 'patient'/'positive' -> 1
+        # If labels are already integers (0/1), use them directly.
         
-        # Substring matching for labels like "patient_00"
-        ids = []
-        for status in labels:
-            s = status.lower()
-            if 'patient' in s or 'positive' in s:
-                ids.append(1)
-            else:
-                ids.append(0)
-        label_ids = np.array(ids)
-        #GÜNCELLENDİ: END
+        # Identify if labels are strings or ints
+        if len(labels) > 0 and isinstance(labels[0], str):
+            label_map = {
+                'healthy': 0, 'negative': 0, 'neutral': 0,  # Mapping neutral to healthy
+                'patient': 1, 'positive': 1
+            }
+            # Fallback for unforeseen labels to avoid crash, mapping to 0 (healthy) by default
+            # label_ids = np.array([label_map.get(status.lower(), 0) for status in labels])
+            
+            # SUBSTRING MATCHING for "patient_00", "healthy_01" style labels
+            ids = []
+            for status in labels:
+                s = status.lower()
+                if 'patient' in s or 'positive' in s:
+                    ids.append(1)
+                else:
+                    # 'healthy', 'negative', 'neutral' or anything else -> 0
+                    ids.append(0)
+            label_ids = np.array(ids)
+        else:
+            # Assume already processed int labels
+            label_ids = np.array(labels)
 
         sils = ipts[0]
         if len(sils.size()) == 4:
@@ -51,6 +62,10 @@ class ScoNet(BaseModel):
         embed_1 = self.FCs(feat)  # [n, c, p]
         embed_2, logits = self.BNNecks(embed_1)  # [n, c, p]
         embed = embed_1
+        
+        # Logits shape match check (debug helper)
+        # Expected: [batch, class_num, parts]
+        
         retval = {
             'training_feat': {
                 'triplet': {'embeddings': embed, 'labels': pids},
