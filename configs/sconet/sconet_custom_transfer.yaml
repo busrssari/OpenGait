@@ -1,0 +1,101 @@
+data_cfg:
+  dataset_name: ScoliosisCustom # Optional, but good to differentiate
+  dataset_root: C:\Users\yusuf\OneDrive\Masaüstü\data\processed_silhouettes
+  dataset_partition: ./my_scoliosis_scripts/dataset_partition.json
+  num_workers: 1
+  remove_no_gallery: false
+  test_dataset_name: ScoliosisCustom
+
+evaluator_cfg:
+  enable_float16: true
+  restore_ckpt_strict: true
+  restore_hint: 0 # Only using restore_ckpt in trainer_cfg
+  save_name: ScoNet_Transfer
+  eval_func: evaluate_scoliosis
+  sampler:
+    batch_shuffle: false
+    batch_size: 4 # Reduced for safety on smaller dataset
+    sample_type: all_ordered
+    frames_all_limit: 720
+  metric: euc 
+  transform:
+    - type: BaseSilCuttingTransform
+
+loss_cfg:
+  - loss_term_weight: 1.0
+    margin: 0.2
+    type: TripletLoss
+    log_prefix: triplet
+  - loss_term_weight: 1.0
+    scale: 16
+    type: CrossEntropyLoss
+    log_prefix: softmax
+    log_accuracy: true
+
+model_cfg:
+  model: ScoNet
+  backbone_cfg:
+    type: ResNet9
+    block: BasicBlock
+    channels:
+      - 64
+      - 128
+      - 256
+      - 512
+    layers:
+      - 1
+      - 1
+      - 1
+      - 1
+    strides:
+      - 1
+      - 2
+      - 2
+      - 1
+    maxpool: false
+  SeparateFCs:
+    in_channels: 512
+    out_channels: 256
+    parts_num: 16
+  SeparateBNNecks:
+    class_num: 2 # 0: Healthy, 1: Scoliosis (Binary)
+    in_channels: 256
+    parts_num: 16
+  bin_num:
+    - 16
+
+optimizer_cfg:
+  lr: 0.01 # Reduced learning rate for fine-tuning/transfer learning
+  momentum: 0.9
+  solver: SGD
+  weight_decay: 0.0005
+
+scheduler_cfg:
+  gamma: 0.1
+  milestones:
+    - 500
+    - 1000
+  scheduler: MultiStepLR
+
+trainer_cfg:
+  enable_float16: true
+  fix_BN: false
+  with_test: true # Enable testing during training
+  log_iter: 10
+  restore_ckpt_strict: false # Allow loose loading if heads differ slightly, but here they match
+  restore_ckpt: C:\Users\yusuf\OneDrive\Masaüstü\final-project1\OpenGait\output\Scoliosis1K\ScoNet\ScoNet\checkpoints\ScoNet-20000.pt
+  restore_hint: 0
+  save_iter: 100
+  save_name: ScoNet_Transfer
+  sync_BN: true
+  total_iter: 1500 # Short training for transfer/demo
+  sampler:
+    batch_shuffle: true
+    batch_size:
+      - 2 # Small batch size for very small dataset
+      - 4 
+    frames_num_fixed: 30
+    sample_type: fixed_unordered
+    type: TripletSampler
+  transform:
+    - type: BaseSilCuttingTransform

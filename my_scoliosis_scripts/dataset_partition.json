@@ -26,11 +26,11 @@
         "hasta_onden_3",
         "hasta_onden_5",
         "hasta_onden_6",
-        "sagl\u2500\u2592kl\u2500\u25922",
-        "sagl\u2500\u2592kl\u2500\u25924",
-        "sagl\u2500\u2592kl\u2500\u2592_onden1",
-        "sagl\u2500\u2592kl\u2500\u2592_onden_3",
-        "sagl\u2500\u2592kl\u2500\u2592_onden_5"
+        "saglıklı2",
+        "saglıklı4",
+        "saglıklı_onden1",
+        "saglıklı_onden_3",
+        "saglıklı_onden_5"
     ],
     "TEST_SET": [
         "hasta_onden_1_test",
