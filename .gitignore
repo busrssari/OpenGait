@@ -7,7 +7,10 @@ __pycache__/
 ./config/*
 
 # checkpoint
-*.pt
+# output/
+# *.pt
+# *.pth
+
 
 # summary
 events.out.tfevents.*
@@ -144,4 +147,6 @@ dmypy.json
 .pytype/
 
 # Cython debug symbols
-cython_debug/
+
+# Datasets (Too large for git)
+datasets/

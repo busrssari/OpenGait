@@ -427,21 +427,31 @@ def evaluate_scoliosis(data, dataset, metric='euc'):
     # Label mapping: negative->0, neutral->1, positive->2  
     #label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
     # true_ids = np.array([label_map[status] for status in labels])
-    #GÜNCELLENDİ: START
-    # Label mapping: negative->0, neutral->1, positive->2  
-    #label_map = {'negative': 0, 'neutral': 1, 'positive': 2}
-    # true_ids = np.array([label_map[status] for status in labels])
-    
-    # Label mapping: healthy->0, patient->1 (Substring matching)
+    # [CUSTOM ADDITION START] Updated Logic: Strict Classification
     true_ids = []
     for status in labels:
         s = status.lower()
         if 'patient' in s or 'positive' in s:
-            true_ids.append(1)
+            true_ids.append(1) # Hasta
+        elif 'healthy' in s or 'negative' in s:
+            true_ids.append(0) # Saglikli
         else:
-            true_ids.append(0)
+            # Neutral veya Bilinmeyen -> Hata Bas veya -1 Ata (ki metrics hesaplarken patlasin/gorunsun)
+            msg_mgr.log_info(f"WARNING: Unknown label encountered during evaluation: {status}")
+            true_ids.append(-1) # -1 is invalid for binary metrics usually, signaling an issue
     true_ids = np.array(true_ids)
-    #GÜNCELLENDİ: END
+    
+    # Filter out invalid (-1) entries if any slipped through (Robustness)
+    valid_mask = true_ids != -1
+    if not np.all(valid_mask):
+         msg_mgr.log_info(f"WARNING: Excluding {np.sum(~valid_mask)} samples with non-standard labels (e.g. Neutral).")
+         logits = logits[valid_mask]
+         true_ids = true_ids[valid_mask]
+         # Note: We must also filter 'pred_ids' after calculation if we rely on shape
+    # [CUSTOM ADDITION END]
+    
+    # Re-calculate pred_ids based on filtered logits
+    pred_ids = np.argmax(logits.mean(-1), axis=-1)
 
 
     pred_ids = np.argmax(logits.mean(-1), axis=-1)
@@ -464,10 +474,19 @@ def evaluate_scoliosis(data, dataset, metric='euc'):
     f1 = f1_score(true_ids, pred_ids, average='binary', pos_label=1)
     #GÜNCELLENDİ: END
 
-    
-    # Confusion matrix (for debugging)
-    # cm = confusion_matrix(true_ids, pred_ids, labels=[0, 1, 2])
-    # class_names = ['Negative', 'Neutral', 'Positive']
+    # Confusion matrix 
+    cm = confusion_matrix(true_ids, pred_ids)
+    msg_mgr.log_info(f"Confusion Matrix:\n{cm}")
+    try:
+        # Binary classification (2 labels)
+        if cm.size == 4:
+            tn, fp, fn, tp = cm.ravel()
+            msg_mgr.log_info(f"TN (Healthy -> Healthy): {tn}")
+            msg_mgr.log_info(f"FP (Healthy -> Patient): {fp}")
+            msg_mgr.log_info(f"FN (Patient -> Healthy): {fn}")
+            msg_mgr.log_info(f"TP (Patient -> Patient): {tp}")
+    except Exception as e:
+        msg_mgr.log_info(f"Could not parse binary confusion matrix: {e}")
     
     # Print results
     msg_mgr.log_info(f"Total Accuracy: {accuracy*100:.2f}%")
